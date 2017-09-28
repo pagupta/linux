@@ -38,6 +38,15 @@ config VIRTIO_PCI_LEGACY
 
 	  If unsure, say Y.
 
+config VIRTIO_PMEM
+	tristate "Virtio pmem driver"
+	depends on VIRTIO
+	---help---
+	 This driver onlines pmem memory
+	 range within a KVM guest.
+
+	 If unsure, say M.
+
 config VIRTIO_BALLOON
 	tristate "Virtio balloon driver"
 	depends on VIRTIO
