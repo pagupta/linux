@@ -192,7 +192,6 @@ static blk_status_t pmem_do_write(struct pmem_device *pmem,
 
 static void pmem_submit_bio(struct bio *bio)
 {
-	int ret = 0;
 	blk_status_t rc = 0;
 	bool do_acct;
 	unsigned long start;
@@ -201,8 +200,13 @@ static void pmem_submit_bio(struct bio *bio)
 	struct pmem_device *pmem = bio->bi_bdev->bd_disk->private_data;
 	struct nd_region *nd_region = to_region(pmem);
 
-	if (bio->bi_opf & REQ_PREFLUSH)
-		ret = nvdimm_flush(nd_region, bio);
+	if ((bio->bi_opf & REQ_PREFLUSH) &&
+		nvdimm_flush(nd_region, bio)) {
+
+		/* asynchronous flush completes in other context */
+		if (nd_region->flush)
+			return;
+	}
 
 	do_acct = blk_queue_io_stat(bio->bi_bdev->bd_disk->queue);
 	if (do_acct)
@@ -222,11 +226,13 @@ static void pmem_submit_bio(struct bio *bio)
 	if (do_acct)
 		bio_end_io_acct(bio, start);
 
-	if (bio->bi_opf & REQ_FUA)
-		ret = nvdimm_flush(nd_region, bio);
+	if (bio->bi_opf & REQ_FUA)  {
+		nvdimm_flush(nd_region, bio);
 
-	if (ret)
-		bio->bi_status = errno_to_blk_status(ret);
+		/* asynchronous flush completes in other context */
+		if (nd_region->flush)
+			return;
+	}
 
 	bio_endio(bio);
 }
