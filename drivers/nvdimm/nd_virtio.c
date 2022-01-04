@@ -106,6 +106,7 @@ int async_pmem_flush(struct nd_region *nd_region, struct bio *bio)
 	struct virtio_device *vdev = nd_region->provider_data;
 	struct virtio_pmem *vpmem  = vdev->priv;
 	ktime_t req_start = ktime_get_boottime();
+	int ret = -EINPROGRESS;
 
 	spin_lock_irq(&vpmem->lock);
 	/* flush requests wait until ongoing flush completes,
@@ -126,7 +127,7 @@ int async_pmem_flush(struct nd_region *nd_region, struct bio *bio)
 	if (!bio) {
 		INIT_WORK(&vpmem->flush_work, submit_async_flush);
 		queue_work(vpmem->pmem_wq, &vpmem->flush_work);
-		return 1;
+		return ret;
 	}
 
 	/* flush completed in other context while we waited */
@@ -135,10 +136,10 @@ int async_pmem_flush(struct nd_region *nd_region, struct bio *bio)
 		submit_bio(bio);
 	} else if (bio && (bio->bi_opf & REQ_FUA)) {
 		bio->bi_opf &= ~REQ_FUA;
-		bio_endio(bio);
 	}
+	ret = vpmem->prev_flush_err;
 
-	return 0;
+	return ret;
 };
 EXPORT_SYMBOL_GPL(async_pmem_flush);
 
@@ -148,10 +149,13 @@ static void submit_async_flush(struct work_struct *ws)
 	struct bio *bio = vpmem->flush_bio;
 
 	vpmem->start_flush = ktime_get_boottime();
-	bio->bi_status = errno_to_blk_status(virtio_pmem_flush(vpmem->nd_region));
+	vpmem->prev_flush_err = virtio_pmem_flush(vpmem->nd_region);
 	vpmem->prev_flush_start = vpmem->start_flush;
 	vpmem->flush_bio = NULL;
 	wake_up(&vpmem->sb_wait);
+
+	if (vpmem->prev_flush_err)
+		bio->bi_status = errno_to_blk_status(-EIO);
 
 	/* Submit parent bio only for PREFLUSH */
 	if (bio && (bio->bi_opf & REQ_PREFLUSH)) {

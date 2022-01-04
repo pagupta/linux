@@ -63,6 +63,7 @@ static int virtio_pmem_probe(struct virtio_device *vdev)
 		err = -ENOMEM;
 		goto out_err;
 	}
+
 	init_waitqueue_head(&vpmem->sb_wait);
 	virtio_cread_le(vpmem->vdev, struct virtio_pmem_config,
 			start, &vpmem->start);

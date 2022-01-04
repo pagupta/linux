@@ -38,6 +38,7 @@ struct virtio_pmem {
 	struct bio *flush_bio;
 	/* last_flush is when the last completed flush was started */
 	ktime_t prev_flush_start, start_flush;
+	int prev_flush_err;
 
 	/* work queue for deferred flush */
 	struct work_struct flush_work;

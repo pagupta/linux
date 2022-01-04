@@ -236,7 +236,8 @@ static void pmem_submit_bio(struct bio *bio)
 	if (ret)
 		bio->bi_status = errno_to_blk_status(ret);
 
-	bio_endio(bio);
+	if (bio)
+		bio_endio(bio);
 }
 
 static int pmem_rw_page(struct block_device *bdev, sector_t sector,
