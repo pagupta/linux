@@ -67,4 +67,5 @@ struct virtio_pmem {
 
 void virtio_pmem_host_ack(struct virtqueue *vq);
 int async_pmem_flush(struct nd_region *nd_region, struct bio *bio);
+void submit_async_flush(struct work_struct *ws);
 #endif

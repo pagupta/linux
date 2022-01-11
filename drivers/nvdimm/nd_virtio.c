@@ -97,8 +97,6 @@ static int virtio_pmem_flush(struct nd_region *nd_region)
 	return err;
 };
 
-static void submit_async_flush(struct work_struct *ws);
-
 /* The asynchronous flush callback function */
 int async_pmem_flush(struct nd_region *nd_region, struct bio *bio)
 {
@@ -124,10 +122,9 @@ int async_pmem_flush(struct nd_region *nd_region, struct bio *bio)
 	}
 	spin_unlock_irq(&vpmem->lock);
 
-	if (!bio) {
-		INIT_WORK(&vpmem->flush_work, submit_async_flush);
+	if (!bio)
 		queue_work(vpmem->pmem_wq, &vpmem->flush_work);
-	} else {
+	else {
 	/* flush completed in other context while we waited */
 		if (bio && (bio->bi_opf & REQ_PREFLUSH))
 			bio->bi_opf &= ~REQ_PREFLUSH;
@@ -141,7 +138,7 @@ int async_pmem_flush(struct nd_region *nd_region, struct bio *bio)
 };
 EXPORT_SYMBOL_GPL(async_pmem_flush);
 
-static void submit_async_flush(struct work_struct *ws)
+void submit_async_flush(struct work_struct *ws)
 {
 	struct virtio_pmem *vpmem = container_of(ws, struct virtio_pmem, flush_work);
 	struct bio *bio = vpmem->flush_bio;
@@ -164,4 +161,5 @@ static void submit_async_flush(struct work_struct *ws)
 		bio_endio(bio);
 	}
 }
+EXPORT_SYMBOL_GPL(submit_async_flush);
 MODULE_LICENSE("GPL");
